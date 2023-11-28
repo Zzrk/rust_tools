@@ -1,50 +1,45 @@
 use rust_tools::Config;
-use std::io::{self, Write};
 use std::process;
 
+use clap::{Args, Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+#[command(propagate_version = true)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Search keywords in the file
+    Grep(GrepArgs),
+}
+
+#[derive(Args)]
+struct GrepArgs {
+    query: String,
+    file_path: String,
+}
+
 fn main() {
-    print!("1. Search keywords in the file.\n");
+    let cli = Cli::parse();
 
-    let mut input = String::new();
-    while input.trim() != "1" {
-        print!("Please enter the number before to select the desired function:\n");
-        io::stdout().flush().unwrap();
-
-        input.clear();
-        io::stdin().read_line(&mut input).unwrap();
-    }
-
-    print!("Please enter the keywords you want to search:\n");
-    io::stdout().flush().unwrap();
-    let mut query = String::new();
-    io::stdin().read_line(&mut query).unwrap();
-
-    print!("Please enter the file path:\n");
-    io::stdout().flush().unwrap();
-    let mut file_path = String::new();
-    io::stdin().read_line(&mut file_path).unwrap();
-
-    let mut config: Vec<String> = Vec::new();
-    config.push(String::from("rust_tools"));
-    config.push(query.trim().to_string());
-    config.push(file_path.trim().to_string());
-    let config = Config::build(&config).unwrap_or_else(|err| {
-        println!("Problem parsing arguments: {err}");
-        process::exit(1);
-    });
-
-    // let args: Vec<String> = env::args().collect();
-
-    // let config = Config::build(&args).unwrap_or_else(|err| {
-    //     println!("Problem parsing arguments: {err}");
-    //     process::exit(1);
-    // });
-
-    println!("Searching for {}", config.query);
-    println!("In file {}", config.file_path);
-
-    if let Err(e) = rust_tools::run(config) {
-        println!("Application error: {e}");
-        process::exit(1);
+    match &cli.command {
+        Commands::Grep(args) => {
+            let mut config: Vec<String> = Vec::new();
+            config.push(String::from("rust_tools"));
+            config.push(args.query.clone());
+            config.push(args.file_path.clone());
+            let config = Config::build(&config).unwrap_or_else(|err| {
+                println!("Problem parsing arguments: {err}");
+                process::exit(1);
+            });
+            if let Err(e) = rust_tools::run(config) {
+                println!("Application error: {e}");
+                process::exit(1);
+            }
+        }
     }
 }
