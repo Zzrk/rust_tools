@@ -11,9 +11,16 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+            Commands::StaticServer(args) => {
+                if let Err(e) = args.run() {
+                    println!("Command StaticServer error: {}", e);
+                    std::process::exit(1);
+                }
+            }
         },
         Err(e) => {
             println!("Application error: {}", e);
+            std::process::exit(1);
         }
     }
 }

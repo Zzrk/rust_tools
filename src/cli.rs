@@ -1,4 +1,5 @@
 use crate::grep::GrepArgs;
+use crate::static_server::StaticServerArgs;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -13,4 +14,6 @@ pub struct Cli {
 pub enum Commands {
     /// Search keywords in the file
     Grep(GrepArgs),
+    /// Static file server
+    StaticServer(StaticServerArgs),
 }
