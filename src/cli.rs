@@ -1,5 +1,4 @@
-use crate::grep::GrepArgs;
-use crate::static_server::StaticServerArgs;
+use crate::{find::FindArgs, grep::GrepArgs, static_server::StaticServerArgs};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -16,4 +15,6 @@ pub enum Commands {
     Grep(GrepArgs),
     /// Static file server
     StaticServer(StaticServerArgs),
+    /// Find file by keyword
+    Find(FindArgs),
 }

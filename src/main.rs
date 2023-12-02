@@ -17,6 +17,12 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+            Commands::Find(args) => {
+                if let Err(e) = args.run() {
+                    println!("Command Find error: {}", e);
+                    std::process::exit(1);
+                }
+            }
         },
         Err(e) => {
             println!("Application error: {}", e);
