@@ -1,4 +1,5 @@
 pub mod cli;
 pub mod find;
 pub mod grep;
+pub mod json_server;
 pub mod static_server;

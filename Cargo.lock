@@ -995,6 +995,7 @@ dependencies = [
  "rocket_codegen",
  "rocket_http",
  "serde",
+ "serde_json",
  "state",
  "tempfile",
  "time",
@@ -1057,6 +1058,7 @@ dependencies = [
  "clap",
  "get_if_addrs",
  "rocket",
+ "serde",
  "tokio",
  "walkdir",
 ]
