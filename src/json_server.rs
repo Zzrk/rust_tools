@@ -70,7 +70,47 @@ fn post_name(name: &str, data: Json<Value>, db: &State<Db>) -> Result<Json<Value
             }
 
             // TODO: 原数据是数组, 那么需要判断 id 是否存在
-            Err("Not found")
+            match data_value["id"].as_u64() {
+                Some(new_id) => {
+                    // 有 id, 那么需要判断 id 是否存在
+                    let mut value = value.as_array().unwrap().clone();
+                    let exists_value = value.iter().find(|item| {
+                        let item: ItemWithId = serde_json::from_value((**item).clone()).unwrap();
+                        item.id == new_id
+                    });
+                    match exists_value {
+                        Some(_) => {
+                            // id 存在, 更新失败
+                            Err("Id exists")
+                        }
+                        None => {
+                            // id 不存在, 那么插入新数据
+                            value.push(data_value);
+                            db.insert(name.to_string(), serde_json::to_value(value).unwrap());
+                            return Ok(data);
+                        }
+                    }
+                }
+                None => {
+                    // 没有 id, 获取原数据的最大 id, 然后 +1
+                    let max_id = value
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .map(|item| {
+                            let item: ItemWithId = serde_json::from_value(item.clone()).unwrap();
+                            item.id
+                        })
+                        .max()
+                        .unwrap();
+                    let mut data_value: ItemWithId = serde_json::from_value(data_value).unwrap();
+                    data_value.id = max_id + 1;
+                    let mut value = value.as_array().unwrap().clone();
+                    value.push(serde_json::to_value(data_value).unwrap());
+                    db.insert(name.to_string(), serde_json::to_value(value).unwrap());
+                    return Ok(data);
+                }
+            }
         }
         None => Err("Not found"),
     }
