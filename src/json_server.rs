@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, error::Error, fs, sync::Mutex};
 use tokio::runtime::Runtime;
 
+use crate::tools::print_debug;
+
 // JSON 数据格式, 因为格式不统一, 所以只能用 Value 类型
 type Db = Mutex<HashMap<String, Value>>;
 
@@ -15,6 +17,19 @@ type Db = Mutex<HashMap<String, Value>>;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct ItemWithId {
     id: Option<u64>,
+}
+
+// 比较 id 是否相等，id 可能是数字或者字符串
+fn id_equal(item: &Value, id: &str) -> bool {
+    if let Some(str_id) = item["id"].as_str() {
+        // print_debug("str_id", str_id);
+        return str_id == id;
+    } else if let Some(num_id) = item["id"].as_u64() {
+        // print_debug("num_id", num_id);
+        return num_id.to_string() == id;
+    } else {
+        return false;
+    }
 }
 
 // 插入数据并写入到文件中
@@ -36,27 +51,33 @@ fn get_name(name: &str, db: &State<Db>) -> Result<Json<Value>, &'static str> {
 }
 
 #[rocket::get("/<name>/<id>")]
-fn get_name_id(name: &str, id: u64, db: &State<Db>) -> Result<Json<Value>, &'static str> {
+fn get_name_id(name: &str, id: &str, db: &State<Db>) -> Result<Json<Value>, &'static str> {
     let db = db.lock().unwrap();
     let db_value = db.get(name);
     match db_value {
         Some(db_value) => {
             if db_value.is_array() == false {
                 // 原数据不是数组, 那么 id 无效, 直接返回错误
+                print_debug("查找到", name);
+                print_debug("原数据是否为数组", false);
                 return Err("Not found");
             }
             let db_value = db_value.as_array().unwrap();
             // 从数组中查找 id
-            let res_value = db_value.iter().find(|item| {
-                let item: ItemWithId = serde_json::from_value((**item).clone()).unwrap();
-                item.id == Some(id)
-            });
+            let res_value = db_value.iter().find(|item| id_equal(item, id));
             match res_value {
                 Some(res_value) => Ok(Json(res_value.clone())),
-                None => Err("Not found"),
+                None => {
+                    print_debug("原数据是否为数组", true);
+                    print_debug("原数组中没有当前 id", id);
+                    Err("Not found")
+                }
             }
         }
-        None => Err("Not found"),
+        None => {
+            print_debug("没有查找到", name);
+            Err("Not found")
+        }
     }
 }
 
@@ -85,6 +106,7 @@ fn post_name(name: &str, data: Json<Value>, db: &State<Db>) -> Result<Json<Value
                     match exists_value {
                         Some(_) => {
                             // id 存在, 更新失败
+                            print_debug("原数据是数组, 且存在 data 中相同 id", new_id);
                             Err("Id exists")
                         }
                         None => {
@@ -115,7 +137,10 @@ fn post_name(name: &str, data: Json<Value>, db: &State<Db>) -> Result<Json<Value
                 }
             }
         }
-        None => Err("Not found"),
+        None => {
+            print_debug("没有查找到", name);
+            Err("Not found")
+        }
     }
 }
 
