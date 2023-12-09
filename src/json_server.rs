@@ -1,6 +1,9 @@
 use clap::Args;
+use rocket::http::Status;
+use rocket::response::status;
 use rocket::serde::json::{serde_json, Json, Value};
 use rocket::{routes, State};
+use serde_json::json;
 use std::{collections::HashMap, error::Error, fs, sync::Mutex};
 use tokio::runtime::Runtime;
 
@@ -8,6 +11,21 @@ use crate::tools::print_debug;
 
 /// JSON 数据格式, 因为格式不统一, 所以只能用 Value 类型
 type Db = Mutex<HashMap<String, Value>>;
+
+/// 404
+fn not_found(err: Value) -> status::Custom<Value> {
+    status::Custom(Status::NotFound, err)
+}
+
+/// 404 空对象
+fn empty_not_found() -> status::Custom<Value> {
+    not_found(json!({}))
+}
+
+/// 500
+fn internal_server_error(err: Value) -> status::Custom<Value> {
+    status::Custom(Status::InternalServerError, err)
+}
 
 /// 获取 Value 中的 id, id 可能是字符串或数字或其他类型
 fn get_value_id(item: &Value) -> u64 {
@@ -70,12 +88,12 @@ fn inset_and_write(db: &mut HashMap<String, Value>, name: &str, data_value: Valu
 /// 查找 name 属性, 如果不存在返回 Err
 /// 如果存在， 返回所有数据
 #[rocket::get("/<name>")]
-fn get_name(name: &str, db: &State<Db>) -> Result<Json<Value>, &'static str> {
+fn get_name(name: &str, db: &State<Db>) -> Result<Value, status::Custom<Value>> {
     let db = db.lock().unwrap();
     let db_value = db.get(name);
     match db_value {
-        Some(db_value) => Ok(Json(db_value.clone())),
-        None => Err("Not found"),
+        Some(db_value) => Ok(db_value.clone()),
+        None => Err(empty_not_found()),
     }
 }
 
@@ -84,7 +102,7 @@ fn get_name(name: &str, db: &State<Db>) -> Result<Json<Value>, &'static str> {
 /// 如果存在, 且数据是数组, 那么查找 id, 如果不存在返回 Err
 /// 返回查找到的数据
 #[rocket::get("/<name>/<id>")]
-fn get_name_id(name: &str, id: &str, db: &State<Db>) -> Result<Json<Value>, &'static str> {
+fn get_name_id(name: &str, id: &str, db: &State<Db>) -> Result<Value, status::Custom<Value>> {
     let db = db.lock().unwrap();
     let db_value = db.get(name);
     match db_value {
@@ -93,23 +111,23 @@ fn get_name_id(name: &str, id: &str, db: &State<Db>) -> Result<Json<Value>, &'st
                 // 原数据不是数组, 那么 id 无效, 直接返回错误
                 print_debug("查找到", name);
                 print_debug("原数据是否为数组", false);
-                return Err("Not found");
+                return Err(not_found(json!({})));
             }
             let db_value = db_value.as_array().unwrap();
             // 从数组中查找 id
             let res_value = db_value.iter().find(|item| is_value_equal_str(item, id));
             match res_value {
-                Some(res_value) => Ok(Json(res_value.clone())),
+                Some(res_value) => Ok(res_value.clone()),
                 None => {
                     print_debug("原数据是否为数组", true);
                     print_debug("原数组中没有当前 id", id);
-                    Err("Not found")
+                    Err(empty_not_found())
                 }
             }
         }
         None => {
             print_debug("没有查找到", name);
-            Err("Not found")
+            Err(empty_not_found())
         }
     }
 }
@@ -123,7 +141,11 @@ fn get_name_id(name: &str, id: &str, db: &State<Db>) -> Result<Json<Value>, &'st
 /// 如果原数组中对应 id 存在, 那么更新失败
 /// 返回插入的数据
 #[rocket::post("/<name>", data = "<data>")]
-fn post_name(name: &str, data: Json<Value>, db: &State<Db>) -> Result<Json<Value>, &'static str> {
+fn post_name(
+    name: &str,
+    data: Json<Value>,
+    db: &State<Db>,
+) -> Result<Value, status::Custom<Value>> {
     let mut db = db.lock().unwrap();
     let db_value = db.get(name);
     let mut data_value = data.clone().into_inner();
@@ -131,8 +153,8 @@ fn post_name(name: &str, data: Json<Value>, db: &State<Db>) -> Result<Json<Value
         Some(db_value) => {
             // 原数据不是数组, 直接更新原数据
             if db_value.is_array() == false {
-                inset_and_write(&mut *db, name, data_value);
-                return Ok(data);
+                inset_and_write(&mut *db, name, data_value.clone());
+                return Ok(data_value);
             }
             let mut db_value: Vec<Value> = db_value.as_array().unwrap().clone();
 
@@ -147,7 +169,7 @@ fn post_name(name: &str, data: Json<Value>, db: &State<Db>) -> Result<Json<Value
                 data_value["id"] = serde_json::to_value(max_id + 1).unwrap();
                 db_value.push(data_value.clone());
                 inset_and_write(&mut *db, name, serde_json::to_value(db_value).unwrap());
-                return Ok(Json(data_value));
+                return Ok(data_value);
             }
             // data 中有 id, 那么需要判断原数组中对应 id 是否存在
             let exists_value = db_value
@@ -157,19 +179,22 @@ fn post_name(name: &str, data: Json<Value>, db: &State<Db>) -> Result<Json<Value
                 Some(_) => {
                     // id 存在, 更新失败
                     print_debug("原数据是数组, 且存在 data 中相同 id", &data_value["id"]);
-                    Err("Id exists")
+                    Err(internal_server_error(json!({
+                        "error": "Insert failed, duplicate id",
+                        "data": data_value
+                    })))
                 }
                 None => {
                     // id 不存在, 那么插入新数据
-                    db_value.push(data_value);
+                    db_value.push(data_value.clone());
                     inset_and_write(&mut *db, name, serde_json::to_value(db_value).unwrap());
-                    return Ok(data);
+                    return Ok(data_value);
                 }
             }
         }
         None => {
             print_debug("没有查找到", name);
-            Err("Not found")
+            Err(empty_not_found())
         }
     }
 }
