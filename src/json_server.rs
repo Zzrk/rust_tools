@@ -80,11 +80,11 @@ fn is_value_equal_value(item: &Value, data: &Value) -> bool {
 /// 插入数据并写入到文件中
 fn inset_and_write(db: &mut HashMap<String, Value>, name: &str, data_value: Value) {
     db.insert(name.to_string(), data_value);
+    // print_debug("db", db.clone());
     // 将 db 写入到 db.json 文件中
-    let db_json = serde_json::to_string_pretty(&*db).unwrap();
+    let db_json: String = serde_json::to_string_pretty(&*db).unwrap();
     fs::write("db.json", db_json).expect("Unable to write file");
 }
-
 /// 查找 name 属性, 如果不存在返回 Err
 /// 如果存在， 返回所有数据
 #[rocket::get("/<name>")]
@@ -308,6 +308,50 @@ fn patch_name_id(
     }
 }
 
+/// 查找 name 属性, 如果不存在返回 Err
+/// 如果存在, 但是数据不是数组, 返回 Err
+/// 如果存在, 且数据是数组, 那么查找 id, 如果不存在返回 Err
+/// 忽略 data 中的 id, 更新原数组中对应 id 的数据
+#[rocket::delete("/<name>/<id>")]
+fn delete_name_id(name: &str, id: &str, db: &State<Db>) -> Result<Value, status::Custom<Value>> {
+    let mut db = db.lock().unwrap();
+    let db_value = db.get(name);
+    match db_value {
+        Some(db_value) => {
+            if db_value.is_array() == false {
+                // 原数据不是数组, 那么 id 无效, 直接返回错误
+                print_debug("查找到", name);
+                print_debug("原数据是否为数组", false);
+                return Err(not_found(json!({})));
+            }
+            let db_value = db_value.as_array().unwrap();
+            // 从数组中查找 id
+            let res_value = db_value.iter().find(|item| is_value_equal_str(item, id));
+            match res_value {
+                Some(_) => {
+                    // 删除原数组中对应 id 的数据
+                    let db_value: Vec<Value> = db_value
+                        .iter()
+                        .filter(|item| !is_value_equal_str(item, id))
+                        .cloned()
+                        .collect();
+                    inset_and_write(&mut *db, name, serde_json::to_value(db_value).unwrap());
+                    Ok(json!({}))
+                }
+                None => {
+                    print_debug("原数据是否为数组", true);
+                    print_debug("原数组中没有当前 id", id);
+                    Err(empty_not_found())
+                }
+            }
+        }
+        None => {
+            print_debug("没有查找到", name);
+            Err(empty_not_found())
+        }
+    }
+}
+
 #[derive(Args)]
 pub struct JsonServerArgs {
     /// Server root path, default current path
@@ -326,7 +370,14 @@ impl JsonServerArgs {
 
             let rocket = rocket::build().manage(Mutex::new(db)).mount(
                 "/",
-                routes![get_name, get_name_id, post_name, put_name_id, patch_name_id],
+                routes![
+                    get_name,
+                    get_name_id,
+                    post_name,
+                    put_name_id,
+                    patch_name_id,
+                    delete_name_id
+                ],
             );
 
             rocket.launch().await.unwrap();
