@@ -27,7 +27,7 @@ fn internal_server_error(err: Value) -> status::Custom<Value> {
     status::Custom(Status::InternalServerError, err)
 }
 
-/// 获取 Value 中的 id, id 可能是字符串或数字或其他类型
+/// 获取 Value 中的 id 并转化为数字, id 可能是字符串或数字或其他类型
 fn get_value_id(item: &Value) -> u64 {
     if let Some(str_id) = item["id"].as_str() {
         // print_debug("str_id", str_id);
@@ -85,6 +85,7 @@ fn inset_and_write(db: &mut HashMap<String, Value>, name: &str, data_value: Valu
     let db_json: String = serde_json::to_string_pretty(&*db).unwrap();
     fs::write("db.json", db_json).expect("Unable to write file");
 }
+
 /// 查找 name 属性, 如果不存在返回 Err
 /// 如果存在， 返回所有数据
 #[rocket::get("/<name>")]
@@ -191,6 +192,32 @@ fn post_name(
                     return Ok(data_value);
                 }
             }
+        }
+        None => {
+            print_debug("没有查找到", name);
+            Err(empty_not_found())
+        }
+    }
+}
+
+/// 查找 name 属性, 如果不存在返回 Err
+/// 如果存在, 但是数据是数组, 返回 Err
+/// 如果存在, 且数据不是数组, 替换原数据
+#[rocket::put("/<name>", data = "<data>")]
+fn put_name(name: &str, data: Json<Value>, db: &State<Db>) -> Result<Value, status::Custom<Value>> {
+    let mut db = db.lock().unwrap();
+    let db_value = db.get(name);
+    match db_value {
+        Some(db_value) => {
+            if db_value.is_array() == true {
+                // 原数据是数组, 直接返回错误
+                print_debug("查找到", name);
+                print_debug("原数据是否为数组", true);
+                return Err(not_found(json!({})));
+            }
+            let data_value = data.clone().into_inner();
+            inset_and_write(&mut *db, name, data_value.clone());
+            Ok(data_value)
         }
         None => {
             print_debug("没有查找到", name);
@@ -374,6 +401,7 @@ impl JsonServerArgs {
                     get_name,
                     get_name_id,
                     post_name,
+                    put_name,
                     put_name_id,
                     patch_name_id,
                     delete_name_id

@@ -13,12 +13,12 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Search keywords in the file
+    /// Search keyword in the file
     Grep(GrepArgs),
-    /// Static file server
-    StaticServer(StaticServerArgs),
     /// Find file by keyword
     Find(FindArgs),
+    /// Static file server
+    StaticServer(StaticServerArgs),
     /// Start a json server
     JsonServer(JsonServerArgs),
 }
