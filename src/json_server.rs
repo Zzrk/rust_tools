@@ -279,6 +279,42 @@ fn put_name_id(
 }
 
 /// 查找 name 属性, 如果不存在返回 Err
+/// 如果存在, 但是数据是数组, 返回 Err
+/// 如果存在, 且数据不是数组, 更新原数组中的数据
+#[rocket::patch("/<name>", data = "<data>")]
+fn patch_name(
+    name: &str,
+    data: Json<Value>,
+    db: &State<Db>,
+) -> Result<Value, status::Custom<Value>> {
+    let mut db = db.lock().unwrap();
+    let db_value: Option<&Value> = db.get(name);
+    match db_value {
+        Some(db_value) => {
+            if db_value.is_array() == true {
+                // 原数据不是数组, 那么 id 无效, 直接返回错误
+                print_debug("查找到", name);
+                print_debug("原数据是否为数组", true);
+                return Err(not_found(json!({})));
+            }
+
+            let data_value = data.clone().into_inner();
+            let mut db_value = db_value.clone();
+            db_value
+                .as_object_mut()
+                .unwrap()
+                .extend(data_value.as_object().unwrap().clone());
+            inset_and_write(&mut *db, name, db_value.clone());
+            Ok(db_value)
+        }
+        None => {
+            print_debug("没有查找到", name);
+            Err(empty_not_found())
+        }
+    }
+}
+
+/// 查找 name 属性, 如果不存在返回 Err
 /// 如果存在, 但是数据不是数组, 返回 Err
 /// 如果存在, 且数据是数组, 那么查找 id, 如果不存在返回 Err
 /// 忽略 data 中的 id, 更新原数组中对应 id 的数据
@@ -403,6 +439,7 @@ impl JsonServerArgs {
                     post_name,
                     put_name,
                     put_name_id,
+                    patch_name,
                     patch_name_id,
                     delete_name_id
                 ],
