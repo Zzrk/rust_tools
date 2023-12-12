@@ -77,6 +77,35 @@ fn is_value_equal_value(item: &Value, data: &Value) -> bool {
     }
 }
 
+/// 检查原数据是否存在
+fn check_db_value_is_empty<'v>(
+    db_value: Option<&'v Value>,
+    name: &str,
+) -> Result<&'v Value, status::Custom<Value>> {
+    match db_value {
+        Some(db_value) => Ok(db_value),
+        None => {
+            print_debug("没有查找到", name);
+            Err(empty_not_found())
+        }
+    }
+}
+
+/// 检查原数据是否为数组
+fn check_db_value_is_array<'v>(
+    db_value: Option<&'v Value>,
+    name: &str,
+    is_array: bool,
+) -> Result<&'v Value, status::Custom<Value>> {
+    let db_value = check_db_value_is_empty(db_value, name)?;
+    if db_value.is_array() == is_array {
+        print_debug("查找到", name);
+        print_debug("原数据是否为数组", false);
+        return Err(not_found(json!({})));
+    }
+    Ok(db_value)
+}
+
 /// 插入数据并写入到文件中
 fn inset_and_write(db: &mut HashMap<String, Value>, name: &str, data_value: Value) {
     db.insert(name.to_string(), data_value);
@@ -106,28 +135,15 @@ fn get_name(name: &str, db: &State<Db>) -> Result<Value, status::Custom<Value>> 
 fn get_name_id(name: &str, id: &str, db: &State<Db>) -> Result<Value, status::Custom<Value>> {
     let db = db.lock().unwrap();
     let db_value = db.get(name);
-    match db_value {
-        Some(db_value) => {
-            if db_value.is_array() == false {
-                // 原数据不是数组, 那么 id 无效, 直接返回错误
-                print_debug("查找到", name);
-                print_debug("原数据是否为数组", false);
-                return Err(not_found(json!({})));
-            }
-            let db_value = db_value.as_array().unwrap();
-            // 从数组中查找 id
-            let res_value = db_value.iter().find(|item| is_value_equal_str(item, id));
-            match res_value {
-                Some(res_value) => Ok(res_value.clone()),
-                None => {
-                    print_debug("原数据是否为数组", true);
-                    print_debug("原数组中没有当前 id", id);
-                    Err(empty_not_found())
-                }
-            }
-        }
+    let db_value = check_db_value_is_array(db_value, name, false)?;
+    let db_value = db_value.as_array().unwrap();
+    // 从数组中查找 id
+    let res_value = db_value.iter().find(|item| is_value_equal_str(item, id));
+    match res_value {
+        Some(res_value) => Ok(res_value.clone()),
         None => {
-            print_debug("没有查找到", name);
+            print_debug("原数据是否为数组", true);
+            print_debug("原数组中没有当前 id", id);
             Err(empty_not_found())
         }
     }
@@ -147,55 +163,51 @@ fn post_name(
     data: Json<Value>,
     db: &State<Db>,
 ) -> Result<Value, status::Custom<Value>> {
+    let mut data_value = data.into_inner();
     let mut db = db.lock().unwrap();
     let db_value = db.get(name);
-    let mut data_value = data.clone().into_inner();
-    match db_value {
-        Some(db_value) => {
-            // 原数据不是数组, 直接更新原数据
-            if db_value.is_array() == false {
-                inset_and_write(&mut *db, name, data_value.clone());
-                return Ok(data_value);
-            }
-            let mut db_value: Vec<Value> = db_value.as_array().unwrap().clone();
+    let db_value = check_db_value_is_empty(db_value, name)?;
 
-            // 原数据是数组, 那么需要判断 data 中 id 是否存在
-            if data_value["id"].is_null() {
-                // 没有 id, 获取原数组中的最大 id, 然后 +1
-                let max_id = db_value
-                    .iter()
-                    .map(|item| get_value_id(item))
-                    .max()
-                    .unwrap();
-                data_value["id"] = serde_json::to_value(max_id + 1).unwrap();
-                db_value.push(data_value.clone());
-                inset_and_write(&mut *db, name, serde_json::to_value(db_value).unwrap());
-                return Ok(data_value);
-            }
-            // data 中有 id, 那么需要判断原数组中对应 id 是否存在
-            let exists_value = db_value
-                .iter()
-                .find(|item| is_value_equal_value(item, &data_value));
-            match exists_value {
-                Some(_) => {
-                    // id 存在, 更新失败
-                    print_debug("原数据是数组, 且存在 data 中相同 id", &data_value["id"]);
-                    Err(internal_server_error(json!({
-                        "error": "Insert failed, duplicate id",
-                        "data": data_value
-                    })))
-                }
-                None => {
-                    // id 不存在, 那么插入新数据
-                    db_value.push(data_value.clone());
-                    inset_and_write(&mut *db, name, serde_json::to_value(db_value).unwrap());
-                    return Ok(data_value);
-                }
-            }
+    // 原数据不是数组, 直接更新原数据
+    if db_value.is_array() == false {
+        inset_and_write(&mut *db, name, data_value.clone());
+        return Ok(data_value);
+    }
+    let mut db_value: Vec<Value> = db_value.as_array().unwrap().clone();
+
+    // 原数据是数组, 且 data 中没有 id
+    if data_value["id"].is_null() {
+        // 获取原数组中的最大 id, 然后 +1
+        let max_id = db_value
+            .iter()
+            .map(|item| get_value_id(item))
+            .max()
+            .unwrap();
+        data_value["id"] = serde_json::to_value(max_id + 1).unwrap();
+        db_value.push(data_value.clone());
+        inset_and_write(&mut *db, name, serde_json::to_value(db_value).unwrap());
+        return Ok(data_value);
+    }
+
+    // 原数据是数组, 且 data 中有 id
+    // 判断原数组中对应 id 是否存在
+    let exists_value = db_value
+        .iter()
+        .find(|item| is_value_equal_value(item, &data_value));
+    match exists_value {
+        Some(_) => {
+            // id 存在, 更新失败
+            print_debug("原数据是数组, 且存在 data 中相同 id", &data_value["id"]);
+            Err(internal_server_error(json!({
+                "error": "Insert failed, duplicate id",
+                "data": data_value
+            })))
         }
         None => {
-            print_debug("没有查找到", name);
-            Err(empty_not_found())
+            // id 不存在, 那么插入新数据
+            db_value.push(data_value.clone());
+            inset_and_write(&mut *db, name, serde_json::to_value(db_value).unwrap());
+            return Ok(data_value);
         }
     }
 }
@@ -205,25 +217,12 @@ fn post_name(
 /// 如果存在, 且数据不是数组, 替换原数据
 #[rocket::put("/<name>", data = "<data>")]
 fn put_name(name: &str, data: Json<Value>, db: &State<Db>) -> Result<Value, status::Custom<Value>> {
+    let data_value = data.into_inner();
     let mut db = db.lock().unwrap();
     let db_value = db.get(name);
-    match db_value {
-        Some(db_value) => {
-            if db_value.is_array() == true {
-                // 原数据是数组, 直接返回错误
-                print_debug("查找到", name);
-                print_debug("原数据是否为数组", true);
-                return Err(not_found(json!({})));
-            }
-            let data_value = data.clone().into_inner();
-            inset_and_write(&mut *db, name, data_value.clone());
-            Ok(data_value)
-        }
-        None => {
-            print_debug("没有查找到", name);
-            Err(empty_not_found())
-        }
-    }
+    check_db_value_is_array(db_value, name, true)?;
+    inset_and_write(&mut *db, name, data_value.clone());
+    Ok(data_value)
 }
 
 /// 查找 name 属性, 如果不存在返回 Err
@@ -239,40 +238,27 @@ fn put_name_id(
 ) -> Result<Value, status::Custom<Value>> {
     let mut db = db.lock().unwrap();
     let db_value = db.get(name);
-    match db_value {
-        Some(db_value) => {
-            if db_value.is_array() == false {
-                // 原数据不是数组, 那么 id 无效, 直接返回错误
-                print_debug("查找到", name);
-                print_debug("原数据是否为数组", false);
-                return Err(not_found(json!({})));
-            }
-            let db_value = db_value.as_array().unwrap();
-            // 从数组中查找 id
-            let res_value = db_value.iter().find(|item| is_value_equal_str(item, id));
-            match res_value {
-                Some(res_value) => {
-                    // 忽略 data 中的 id, 替换原数组中对应 id 的数据
-                    let mut data_value = data.clone().into_inner();
-                    data_value["id"] = res_value["id"].clone();
-                    let mut db_value: Vec<Value> = db_value
-                        .iter()
-                        .filter(|item| !is_value_equal_str(item, id))
-                        .cloned()
-                        .collect();
-                    db_value.push(data_value.clone());
-                    inset_and_write(&mut *db, name, serde_json::to_value(db_value).unwrap());
-                    Ok(data_value)
-                }
-                None => {
-                    print_debug("原数据是否为数组", true);
-                    print_debug("原数组中没有当前 id", id);
-                    Err(empty_not_found())
-                }
-            }
+    let db_value = check_db_value_is_array(db_value, name, false)?;
+    let db_value = db_value.as_array().unwrap();
+    // 从数组中查找 id
+    let res_value = db_value.iter().find(|item| is_value_equal_str(item, id));
+    match res_value {
+        Some(res_value) => {
+            // 忽略 data 中的 id, 替换原数组中对应 id 的数据
+            let mut data_value = data.clone().into_inner();
+            data_value["id"] = res_value["id"].clone();
+            let mut db_value: Vec<Value> = db_value
+                .iter()
+                .filter(|item| !is_value_equal_str(item, id))
+                .cloned()
+                .collect();
+            db_value.push(data_value.clone());
+            inset_and_write(&mut *db, name, serde_json::to_value(db_value).unwrap());
+            Ok(data_value)
         }
         None => {
-            print_debug("没有查找到", name);
+            print_debug("原数据是否为数组", true);
+            print_debug("原数组中没有当前 id", id);
             Err(empty_not_found())
         }
     }
@@ -287,31 +273,17 @@ fn patch_name(
     data: Json<Value>,
     db: &State<Db>,
 ) -> Result<Value, status::Custom<Value>> {
+    let data_value = data.into_inner();
     let mut db = db.lock().unwrap();
-    let db_value: Option<&Value> = db.get(name);
-    match db_value {
-        Some(db_value) => {
-            if db_value.is_array() == true {
-                // 原数据不是数组, 那么 id 无效, 直接返回错误
-                print_debug("查找到", name);
-                print_debug("原数据是否为数组", true);
-                return Err(not_found(json!({})));
-            }
-
-            let data_value = data.clone().into_inner();
-            let mut db_value = db_value.clone();
-            db_value
-                .as_object_mut()
-                .unwrap()
-                .extend(data_value.as_object().unwrap().clone());
-            inset_and_write(&mut *db, name, db_value.clone());
-            Ok(db_value)
-        }
-        None => {
-            print_debug("没有查找到", name);
-            Err(empty_not_found())
-        }
-    }
+    let db_value = db.get(name);
+    let db_value = check_db_value_is_array(db_value, name, true)?;
+    let mut db_value = db_value.clone();
+    db_value
+        .as_object_mut()
+        .unwrap()
+        .extend(data_value.as_object().unwrap().clone());
+    inset_and_write(&mut *db, name, db_value.clone());
+    Ok(db_value)
 }
 
 /// 查找 name 属性, 如果不存在返回 Err
@@ -327,45 +299,32 @@ fn patch_name_id(
 ) -> Result<Value, status::Custom<Value>> {
     let mut db = db.lock().unwrap();
     let db_value = db.get(name);
-    match db_value {
-        Some(db_value) => {
-            if db_value.is_array() == false {
-                // 原数据不是数组, 那么 id 无效, 直接返回错误
-                print_debug("查找到", name);
-                print_debug("原数据是否为数组", false);
-                return Err(not_found(json!({})));
-            }
-            let db_value = db_value.as_array().unwrap();
-            // 从数组中查找 id
-            let res_value = db_value.iter().find(|item| is_value_equal_str(item, id));
-            match res_value {
-                Some(res_value) => {
-                    // 忽略 data 中的 id, 更新原数组中对应 id 的数据
-                    let mut data_value = data.clone().into_inner();
-                    data_value["id"] = res_value["id"].clone();
-                    let mut res_value = res_value.clone();
-                    res_value
-                        .as_object_mut()
-                        .unwrap()
-                        .extend(data_value.as_object().unwrap().clone());
-                    let mut db_value: Vec<Value> = db_value
-                        .iter()
-                        .filter(|item| !is_value_equal_str(item, id))
-                        .cloned()
-                        .collect();
-                    db_value.push(res_value.clone());
-                    inset_and_write(&mut *db, name, serde_json::to_value(db_value).unwrap());
-                    Ok(res_value)
-                }
-                None => {
-                    print_debug("原数据是否为数组", true);
-                    print_debug("原数组中没有当前 id", id);
-                    Err(empty_not_found())
-                }
-            }
+    let db_value = check_db_value_is_array(db_value, name, false)?;
+    let db_value = db_value.as_array().unwrap();
+    // 从数组中查找 id
+    let res_value = db_value.iter().find(|item| is_value_equal_str(item, id));
+    match res_value {
+        Some(res_value) => {
+            // 忽略 data 中的 id, 更新原数组中对应 id 的数据
+            let mut data_value = data.clone().into_inner();
+            data_value["id"] = res_value["id"].clone();
+            let mut res_value = res_value.clone();
+            res_value
+                .as_object_mut()
+                .unwrap()
+                .extend(data_value.as_object().unwrap().clone());
+            let mut db_value: Vec<Value> = db_value
+                .iter()
+                .filter(|item| !is_value_equal_str(item, id))
+                .cloned()
+                .collect();
+            db_value.push(res_value.clone());
+            inset_and_write(&mut *db, name, serde_json::to_value(db_value).unwrap());
+            Ok(res_value)
         }
         None => {
-            print_debug("没有查找到", name);
+            print_debug("原数据是否为数组", true);
+            print_debug("原数组中没有当前 id", id);
             Err(empty_not_found())
         }
     }
@@ -379,37 +338,24 @@ fn patch_name_id(
 fn delete_name_id(name: &str, id: &str, db: &State<Db>) -> Result<Value, status::Custom<Value>> {
     let mut db = db.lock().unwrap();
     let db_value = db.get(name);
-    match db_value {
-        Some(db_value) => {
-            if db_value.is_array() == false {
-                // 原数据不是数组, 那么 id 无效, 直接返回错误
-                print_debug("查找到", name);
-                print_debug("原数据是否为数组", false);
-                return Err(not_found(json!({})));
-            }
-            let db_value = db_value.as_array().unwrap();
-            // 从数组中查找 id
-            let res_value = db_value.iter().find(|item| is_value_equal_str(item, id));
-            match res_value {
-                Some(_) => {
-                    // 删除原数组中对应 id 的数据
-                    let db_value: Vec<Value> = db_value
-                        .iter()
-                        .filter(|item| !is_value_equal_str(item, id))
-                        .cloned()
-                        .collect();
-                    inset_and_write(&mut *db, name, serde_json::to_value(db_value).unwrap());
-                    Ok(json!({}))
-                }
-                None => {
-                    print_debug("原数据是否为数组", true);
-                    print_debug("原数组中没有当前 id", id);
-                    Err(empty_not_found())
-                }
-            }
+    let db_value = check_db_value_is_array(db_value, name, false)?;
+    let db_value = db_value.as_array().unwrap();
+    // 从数组中查找 id
+    let res_value = db_value.iter().find(|item| is_value_equal_str(item, id));
+    match res_value {
+        Some(_) => {
+            // 删除原数组中对应 id 的数据
+            let db_value: Vec<Value> = db_value
+                .iter()
+                .filter(|item| !is_value_equal_str(item, id))
+                .cloned()
+                .collect();
+            inset_and_write(&mut *db, name, serde_json::to_value(db_value).unwrap());
+            Ok(json!({}))
         }
         None => {
-            print_debug("没有查找到", name);
+            print_debug("原数据是否为数组", true);
+            print_debug("原数组中没有当前 id", id);
             Err(empty_not_found())
         }
     }
