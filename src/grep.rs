@@ -27,6 +27,7 @@ impl GrepArgs {
         Ok(())
     }
 
+    // 不忽略大小写
     pub fn search<'a>(&self, contents: &'a str) -> Vec<&'a str> {
         let mut results = Vec::new();
 
@@ -39,6 +40,7 @@ impl GrepArgs {
         results
     }
 
+    /// 忽略大小写
     pub fn search_case_insensitive<'a>(&self, contents: &'a str) -> Vec<&'a str> {
         let query = self.query.to_lowercase();
         let mut results = Vec::new();
