@@ -23,6 +23,6 @@ pub enum Commands {
     JsonServer(JsonServerArgs),
 }
 
-trait Run {
+pub trait RunCommand {
     fn run(&self) -> Result<(), Box<dyn std::error::Error>>;
 }

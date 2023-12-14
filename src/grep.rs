@@ -1,3 +1,4 @@
+use crate::cli::RunCommand;
 use clap::Args;
 use std::error::Error;
 use std::fs;
@@ -13,8 +14,8 @@ pub struct GrepArgs {
     ignore_case: bool,
 }
 
-impl GrepArgs {
-    pub fn run(&self) -> Result<(), Box<dyn Error>> {
+impl RunCommand for GrepArgs {
+    fn run(&self) -> Result<(), Box<dyn Error>> {
         let contents = fs::read_to_string(&self.file_path)?;
 
         let results = if self.ignore_case {
@@ -29,7 +30,9 @@ impl GrepArgs {
 
         Ok(())
     }
+}
 
+impl GrepArgs {
     // 不忽略大小写
     pub fn search<'a>(&self, contents: &'a str) -> Vec<&'a str> {
         let mut results = Vec::new();

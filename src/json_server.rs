@@ -7,6 +7,7 @@ use serde_json::json;
 use std::{collections::HashMap, error::Error, fs, sync::Mutex};
 use tokio::runtime::Runtime;
 
+use crate::cli::RunCommand;
 use crate::tools::print_debug;
 
 /// JSON 数据格式, 因为格式不统一, 所以只能用 Value 类型
@@ -367,8 +368,8 @@ pub struct JsonServerArgs {
     path: String,
 }
 
-impl JsonServerArgs {
-    pub fn run(&self) -> Result<(), Box<dyn Error>> {
+impl RunCommand for JsonServerArgs {
+    fn run(&self) -> Result<(), Box<dyn Error>> {
         let rt = Runtime::new()?;
 
         rt.block_on(async {

@@ -1,5 +1,5 @@
 use clap::Parser;
-use rust_tools::cli::{Cli, Commands};
+use rust_tools::cli::{Cli, Commands, RunCommand};
 
 fn main() {
     // use try_parse to avoid panic

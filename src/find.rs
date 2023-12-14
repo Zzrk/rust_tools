@@ -1,3 +1,4 @@
+use crate::cli::RunCommand;
 use clap::Args;
 use std::error::Error;
 use std::path::Path;
@@ -15,8 +16,8 @@ pub struct FindArgs {
     limit: Option<u16>,
 }
 
-impl FindArgs {
-    pub fn run(&self) -> Result<(), Box<dyn Error>> {
+impl RunCommand for FindArgs {
+    fn run(&self) -> Result<(), Box<dyn Error>> {
         let path = self.path.clone().unwrap_or(".".to_string());
         let path = Path::new(path.as_str());
         let limit = self.limit.unwrap_or(10);

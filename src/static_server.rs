@@ -1,3 +1,4 @@
+use crate::cli::RunCommand;
 use clap::Args;
 use get_if_addrs::get_if_addrs;
 use rocket::{fs::FileServer, Config};
@@ -17,8 +18,8 @@ pub struct StaticServerArgs {
     port: Option<u16>,
 }
 
-impl StaticServerArgs {
-    pub fn run(&self) -> Result<(), Box<dyn Error>> {
+impl RunCommand for StaticServerArgs {
+    fn run(&self) -> Result<(), Box<dyn Error>> {
         let rt = Runtime::new()?;
 
         rt.block_on(async {
