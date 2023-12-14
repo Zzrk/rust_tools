@@ -22,3 +22,7 @@ pub enum Commands {
     /// Start a json server
     JsonServer(JsonServerArgs),
 }
+
+trait Run {
+    fn run(&self) -> Result<(), Box<dyn std::error::Error>>;
+}

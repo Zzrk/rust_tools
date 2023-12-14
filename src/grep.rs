@@ -4,9 +4,12 @@ use std::fs;
 
 #[derive(Args)]
 pub struct GrepArgs {
+    /// Search keyword
     query: String,
+    /// Search file path
     file_path: String,
     #[arg(short, long)]
+    /// Ignore case
     ignore_case: bool,
 }
 
@@ -73,6 +76,7 @@ Duct tape.";
             file_path: String::from(""),
             ignore_case: false,
         };
+
         assert_eq!(vec!["safe, fast, productive."], args.search(contents));
     }
 
@@ -90,6 +94,7 @@ Trust me.";
             file_path: String::from(""),
             ignore_case: false,
         };
+
         assert_eq!(
             vec!["Rust:", "Trust me."],
             args.search_case_insensitive(contents)

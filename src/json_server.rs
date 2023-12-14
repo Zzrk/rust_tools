@@ -363,7 +363,7 @@ fn delete_name_id(name: &str, id: &str, db: &State<Db>) -> Result<Value, status:
 
 #[derive(Args)]
 pub struct JsonServerArgs {
-    /// Server root path, default current path
+    /// json file path
     path: String,
 }
 
