@@ -61,6 +61,7 @@ impl RunCommand for ImagePreviewArgs {
     }
 }
 
+/// 获取文件类型, 默认所有类型
 fn get_file_type<'s>(image_type: Option<&'s str>) -> Result<Vec<&'s str>, &'static str> {
     let file_type = vec!["svg", "png", "jpg", "jpeg", "gif"];
     match image_type {
@@ -82,6 +83,7 @@ struct ImageFile {
     full_path: String,
 }
 
+/// 获取目录下指定类型的文件
 fn get_files_from_path(path: &Path, file_type: Vec<&str>) -> Vec<ImageFile> {
     let mut files = vec![];
     for result in WalkDir::new(path) {
