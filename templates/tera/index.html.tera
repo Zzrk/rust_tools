@@ -1,0 +1,13 @@
+{% extends "tera/base" %}
+
+{% block content %}
+    <h3>Here are your files:</h3>
+    <div style="display: flex; flex-wrap: wrap;">
+        {% for s in names %}
+            <div style="width: 200px; height: 200px;">
+                {{ loop.index }} {{ s }}
+                <img src="{{ relative_paths[loop.index] }}" alt="img" />
+            </div>
+        {% endfor %}
+    </div>
+{% endblock content %}
