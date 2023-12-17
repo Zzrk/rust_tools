@@ -144,7 +144,7 @@ fn index(files: &State<Vec<ImageFile>>) -> Template {
     });
 
     Template::render(
-        "tera/index",
+        "tera/preview",
         context! {
             names,
             relative_paths,
