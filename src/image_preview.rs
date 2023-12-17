@@ -1,8 +1,9 @@
 use crate::cli::RunCommand;
 use clap::Args;
 use get_if_addrs::get_if_addrs;
-use rocket::{fs::FileServer, routes, Config, Request, State};
-use rocket_dyn_templates::{context, tera::Tera, Template};
+use rocket::fs::FileServer;
+use rocket::response::content;
+use rocket::{routes, Config, State};
 use std::error::Error;
 use std::net::IpAddr;
 use std::path::Path;
@@ -48,11 +49,11 @@ impl RunCommand for ImagePreviewArgs {
                 .manage(files)
                 .configure(config)
                 .mount("/", routes![index])
-                .mount("/", FileServer::from(path))
-                .register("/", rocket::catchers![not_found])
-                .attach(Template::custom(|engines| {
-                    customize(&mut engines.tera);
-                }));
+                .mount("/", FileServer::from(path));
+            // .register("/", rocket::catchers![not_found])
+            // .attach(Template::custom(|engines| {
+            //     customize(&mut engines.tera);
+            // }));
 
             rocket.launch().await.unwrap();
         });
@@ -134,49 +135,75 @@ fn get_first_ip_starting_with_prefix(ip_prefix: Option<String>) -> Option<String
 }
 
 #[rocket::get("/")]
-fn index(files: &State<Vec<ImageFile>>) -> Template {
-    let mut names = vec![];
-    let mut relative_paths = vec!["".to_string()];
-    let mut full_paths = vec!["".to_string()];
+fn index(files: &State<Vec<ImageFile>>) -> content::RawHtml<String> {
+    let mut html = String::new();
+    let s = r#"
+        <h3>Here are your images:</h3>
+        <div style="display: flex; flex-wrap: wrap;">
+    "#;
+    html.push_str(s);
 
     files.iter().for_each(|file| {
-        names.push(file.name.clone());
-        relative_paths.push(file.relative_path.clone());
-        full_paths.push(file.full_path.clone());
+        let s = format!(r#"
+            <div style="width: 200px; height: 240px; display: flex; flex-direction: column; align-items: center; margin: 0 20px 20px 0;">
+                <img style="width: 200px; height: 200px; object-fit: contain;" src="{}" alt="image" />
+                <span style="margin-top: 10px; font-size: 12px;">{}</span>
+            </div>
+        "#, file.name, file.relative_path);
+        html.push_str(s.as_str());
     });
 
-    Template::render(
-        "tera/preview",
-        context! {
-            names,
-            relative_paths,
-            full_paths,
-        },
-    )
+    let s = r#"
+        </div>
+    "#;
+    html.push_str(s);
+    content::RawHtml(html)
 }
 
-#[rocket::catch(404)]
-pub fn not_found(req: &Request<'_>) -> Template {
-    Template::render(
-        "tera/error/404",
-        context! {
-            uri: req.uri()
-        },
-    )
-}
+// #[rocket::get("/")]
+// fn index(files: &State<Vec<ImageFile>>) -> Template {
+//     let mut names = vec![];
+//     let mut relative_paths = vec!["".to_string()];
+//     let mut full_paths = vec!["".to_string()];
 
-pub fn customize(tera: &mut Tera) {
-    tera.add_raw_template(
-        "tera/about.html",
-        r#"
-        {% extends "tera/base" %}
+//     files.iter().for_each(|file| {
+//         names.push(file.name.clone());
+//         relative_paths.push(file.relative_path.clone());
+//         full_paths.push(file.full_path.clone());
+//     });
 
-        {% block content %}
-            <section id="about">
-              <h1>About - Here's another page!</h1>
-            </section>
-        {% endblock content %}
-    "#,
-    )
-    .expect("valid Tera template");
-}
+//     Template::render(
+//         "tera/preview",
+//         context! {
+//             names,
+//             relative_paths,
+//             full_paths,
+//         },
+//     )
+// }
+
+// #[rocket::catch(404)]
+// pub fn not_found(req: &Request<'_>) -> Template {
+//     Template::render(
+//         "tera/error/404",
+//         context! {
+//             uri: req.uri()
+//         },
+//     )
+// }
+
+// pub fn customize(tera: &mut Tera) {
+//     tera.add_raw_template(
+//         "tera/about.html",
+//         r#"
+//         {% extends "tera/base" %}
+
+//         {% block content %}
+//             <section id="about">
+//               <h1>About - Here's another page!</h1>
+//             </section>
+//         {% endblock content %}
+//     "#,
+//     )
+//     .expect("valid Tera template");
+// }
