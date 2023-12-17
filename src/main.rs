@@ -29,6 +29,12 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+            Commands::ImagePreview(args) => {
+                if let Err(e) = args.run() {
+                    println!("Command ImagePreview error: {}", e);
+                    std::process::exit(1);
+                }
+            }
         },
         Err(e) => {
             println!("Application error: {}", e);
