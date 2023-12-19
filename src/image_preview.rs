@@ -149,7 +149,7 @@ fn index(files: &State<Vec<ImageFile>>) -> content::RawHtml<String> {
                 <img style="width: 200px; height: 200px; object-fit: contain;" src="{}" alt="image" />
                 <span style="margin-top: 10px; font-size: 12px;">{}</span>
             </div>
-        "#, file.name, file.relative_path);
+        "#, file.relative_path, file.name);
         html.push_str(s.as_str());
     });
 
