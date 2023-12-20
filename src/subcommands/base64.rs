@@ -17,9 +17,9 @@ pub struct Base64Args {
     /// use url safe encoding, default is false
     #[arg(short, long)]
     url_safe: bool,
-    /// file to encode or decode
-    /// in case of encode, the file will be encoded and printed to stdout
-    /// in case of decode, the message will be decoded and written to the file
+    /// file to encode or decode:
+    /// in case of encode, the file will be encoded and printed to stdout;
+    /// in case of decode, the message will be decoded and written to the file;
     #[arg(short, long)]
     file: Option<String>,
 }
