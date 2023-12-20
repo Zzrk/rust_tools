@@ -1,7 +1,8 @@
-use crate::cli::RunCommand;
+use crate::{cli::RunCommand, tools::print_debug};
 use base64::{engine::general_purpose, Engine as _};
 use clap::Args;
 use std::error::Error;
+use std::fs;
 
 #[derive(Args)]
 pub struct Base64Args {
@@ -16,6 +17,53 @@ pub struct Base64Args {
     /// use url safe encoding, default is false
     #[arg(short, long)]
     url_safe: bool,
+    /// file to encode or decode
+    /// in case of encode, the file will be encoded and printed to stdout
+    /// in case of decode, the message will be decoded and written to the file
+    #[arg(short, long)]
+    file: Option<String>,
+}
+
+impl Base64Args {
+    /// encode message
+    fn encode(&self) -> String {
+        match self.url_safe {
+            true => general_purpose::URL_SAFE.encode(&self.message.as_bytes()),
+            false => general_purpose::STANDARD.encode(&self.message.as_bytes()),
+        }
+    }
+
+    /// encode file
+    fn encode_file(&self) -> Result<String, Box<dyn Error>> {
+        let file = fs::read_to_string(self.file.as_ref().unwrap())?;
+        match self.url_safe {
+            true => Ok(general_purpose::URL_SAFE.encode(&file.as_bytes())),
+            false => Ok(general_purpose::STANDARD.encode(&file.as_bytes())),
+        }
+    }
+
+    /// decode message
+    fn decode(&self) -> Result<String, Box<dyn Error>> {
+        match self.url_safe {
+            true => Ok(String::from_utf8(
+                general_purpose::URL_SAFE.decode(&self.message.as_bytes())?,
+            )?),
+            false => Ok(String::from_utf8(
+                general_purpose::STANDARD.decode(&self.message.as_bytes())?,
+            )?),
+        }
+    }
+
+    /// decode message and write to file
+    fn decode_file(&self) -> Result<String, Box<dyn Error>> {
+        let file_path = self.file.as_ref().unwrap();
+        let file = match self.url_safe {
+            true => general_purpose::URL_SAFE.decode(&self.message.as_bytes())?,
+            false => general_purpose::STANDARD.decode(&self.message.as_bytes())?,
+        };
+        fs::write(file_path, file)?;
+        Ok(format!("write file to {}", file_path))
+    }
 }
 
 impl RunCommand for Base64Args {
@@ -23,62 +71,16 @@ impl RunCommand for Base64Args {
         if self.encode && self.decode {
             return Err("encode and decode can't be used together".into());
         } else if self.decode {
-            let decoded = match self.url_safe {
-                true => general_purpose::URL_SAFE.decode(&self.message.as_bytes())?,
-                false => general_purpose::STANDARD.decode(&self.message.as_bytes())?,
-            };
-            println!("{}", String::from_utf8(decoded)?);
+            match self.file.is_some() {
+                true => println!("{}", self.decode_file()?),
+                false => println!("{}", self.decode()?),
+            }
         } else {
-            let encoded = match self.url_safe {
-                true => general_purpose::URL_SAFE.encode(&self.message.as_bytes()),
-                false => general_purpose::STANDARD.encode(&self.message.as_bytes()),
-            };
-            println!("{}", encoded);
+            match self.file.is_some() {
+                true => println!("{}", self.encode_file()?),
+                false => println!("{}", self.encode()),
+            }
         }
         Ok(())
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn case_sensitive() {
-//         let query = "duct";
-//         let contents = "\
-// Rust:
-// safe, fast, productive.
-// Pick three.
-// Duct tape.";
-
-//         let args: GrepArgs = GrepArgs {
-//             query: String::from(query),
-//             file_path: String::from(""),
-//             ignore_case: false,
-//         };
-
-//         assert_eq!(vec!["safe, fast, productive."], args.search(contents));
-//     }
-
-//     #[test]
-//     fn case_insensitive() {
-//         let query = "rUsT";
-//         let contents = "\
-// Rust:
-// safe, fast, productive.
-// Pick three.
-// Trust me.";
-
-//         let args: GrepArgs = GrepArgs {
-//             query: String::from(query),
-//             file_path: String::from(""),
-//             ignore_case: false,
-//         };
-
-//         assert_eq!(
-//             vec!["Rust:", "Trust me."],
-//             args.search_case_insensitive(contents)
-//         );
-//     }
-// }
