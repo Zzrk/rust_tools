@@ -1,3 +1,4 @@
+pub mod base64;
 pub mod find;
 pub mod grep;
 pub mod image_preview;

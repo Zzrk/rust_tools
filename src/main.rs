@@ -35,6 +35,12 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+            Commands::Base64(args) => {
+                if let Err(e) = args.run() {
+                    println!("Command Base64 error: {}", e);
+                    std::process::exit(1);
+                }
+            }
         },
         Err(e) => {
             println!("Application error: {}", e);

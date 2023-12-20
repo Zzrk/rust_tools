@@ -1,6 +1,6 @@
 use crate::subcommands::{
-    find::FindArgs, grep::GrepArgs, image_preview::ImagePreviewArgs, json_server::JsonServerArgs,
-    static_server::StaticServerArgs,
+    base64::Base64Args, find::FindArgs, grep::GrepArgs, image_preview::ImagePreviewArgs,
+    json_server::JsonServerArgs, static_server::StaticServerArgs,
 };
 use clap::{Parser, Subcommand};
 
@@ -24,6 +24,8 @@ pub enum Commands {
     JsonServer(JsonServerArgs),
     /// Preview image
     ImagePreview(ImagePreviewArgs),
+    /// Base64 encode or decode
+    Base64(Base64Args),
 }
 
 pub trait RunCommand {
