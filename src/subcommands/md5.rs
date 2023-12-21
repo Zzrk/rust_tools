@@ -11,15 +11,35 @@ pub struct MD5Args {
     file_mode: bool,
 }
 
-impl RunCommand for MD5Args {
-    fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
+impl MD5Args {
+    /// hash message
+    fn hash(&self) -> String {
         let message = match self.file_mode {
-            true => fs::read(self.message.as_str())?,
+            true => fs::read(self.message.as_str()).unwrap(),
             false => self.message.as_bytes().to_vec(),
         };
         let digest = md5::compute(message);
-        let res = format!("{:x}", digest);
-        println!("{}", res);
+        format!("{:x}", digest)
+    }
+}
+
+impl RunCommand for MD5Args {
+    fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
+        println!("{}", self.hash());
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hash() {
+        let args = MD5Args {
+            message: String::from("hello world"),
+            file_mode: false,
+        };
+        assert_eq!(args.hash(), "5eb63bbbe01eeed093cb22bb8f5acdc3");
     }
 }
