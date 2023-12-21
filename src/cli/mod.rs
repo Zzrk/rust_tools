@@ -1,6 +1,6 @@
 use crate::subcommands::{
     base64::Base64Args, find::FindArgs, grep::GrepArgs, image_preview::ImagePreviewArgs,
-    json_server::JsonServerArgs, md5::MD5Args, static_server::StaticServerArgs,
+    json_server::JsonServerArgs, md5::MD5Args, sha::ShaArgs, static_server::StaticServerArgs,
 };
 use clap::{Parser, Subcommand};
 
@@ -28,6 +28,8 @@ pub enum Commands {
     Base64(Base64Args),
     /// MD5 hash
     MD5(MD5Args),
+    /// Sha hash
+    Sha(ShaArgs),
 }
 
 pub trait RunCommand {

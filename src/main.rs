@@ -47,6 +47,12 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+            Commands::Sha(args) => {
+                if let Err(e) = args.run() {
+                    println!("Command Sha error: {}", e);
+                    std::process::exit(1);
+                }
+            }
         },
         Err(e) => {
             println!("Application error: {}", e);

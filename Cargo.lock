@@ -1541,6 +1541,7 @@ dependencies = [
  "rocket",
  "rocket_dyn_templates",
  "serde",
+ "sha2",
  "tokio",
  "walkdir",
 ]
