@@ -1,3 +1,8 @@
 {
-  "cSpell.words": ["hasher", "walkdir"]
+  "cSpell.words": [
+    "ciphertext",
+    "hasher",
+    "PKCS",
+    "walkdir"
+  ]
 }
