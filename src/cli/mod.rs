@@ -1,7 +1,7 @@
 use crate::subcommands::{
     aes::AesArgs, base64::Base64Args, find::FindArgs, grep::GrepArgs,
-    image_preview::ImagePreviewArgs, json_server::JsonServerArgs, md5::Md5Args, sha::ShaArgs,
-    static_server::StaticServerArgs,
+    image_preview::ImagePreviewArgs, json_server::JsonServerArgs, md5::Md5Args, rsa::RsaArgs,
+    sha::ShaArgs, static_server::StaticServerArgs,
 };
 use clap::{Parser, Subcommand};
 
@@ -33,6 +33,8 @@ pub enum Commands {
     Sha(ShaArgs),
     /// Aes encrypt or decrypt
     Aes(AesArgs),
+    /// Rsa encrypt or decrypt
+    Rsa(RsaArgs),
 }
 
 pub trait RunCommand {

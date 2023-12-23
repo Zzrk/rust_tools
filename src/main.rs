@@ -59,6 +59,12 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+            Commands::Rsa(args) => {
+                if let Err(e) = args.run() {
+                    println!("Command Rsa error: {}", e);
+                    std::process::exit(1);
+                }
+            }
         },
         Err(e) => {
             println!("Application error: {}", e);

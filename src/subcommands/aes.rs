@@ -2,7 +2,7 @@ use crate::cli::RunCommand;
 use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use base64::{engine::general_purpose, Engine as _};
 use clap::Args;
-use rand_core::{OsRng, RngCore};
+use rand::{rngs::OsRng, RngCore};
 use sha2::{Digest, Sha256};
 use std::error::Error;
 

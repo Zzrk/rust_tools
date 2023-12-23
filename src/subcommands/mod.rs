@@ -5,5 +5,6 @@ pub mod grep;
 pub mod image_preview;
 pub mod json_server;
 pub mod md5;
+pub mod rsa;
 pub mod sha;
 pub mod static_server;
