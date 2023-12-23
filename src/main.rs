@@ -41,7 +41,7 @@ fn main() {
                     std::process::exit(1);
                 }
             }
-            Commands::MD5(args) => {
+            Commands::Md5(args) => {
                 if let Err(e) = args.run() {
                     println!("Command MD5 error: {}", e);
                     std::process::exit(1);

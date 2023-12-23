@@ -3,7 +3,7 @@ use clap::Args;
 use std::fs;
 
 #[derive(Args)]
-pub struct MD5Args {
+pub struct Md5Args {
     /// message to hash
     message: String,
     /// file mode, whether the message represents a file path
@@ -11,7 +11,7 @@ pub struct MD5Args {
     file_mode: bool,
 }
 
-impl MD5Args {
+impl Md5Args {
     /// hash message
     fn hash(&self) -> String {
         let message = match self.file_mode {
@@ -23,7 +23,7 @@ impl MD5Args {
     }
 }
 
-impl RunCommand for MD5Args {
+impl RunCommand for Md5Args {
     fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
         println!("{}", self.hash());
         Ok(())
@@ -36,7 +36,7 @@ mod tests {
 
     #[test]
     fn test_hash() {
-        let args = MD5Args {
+        let args = Md5Args {
             message: String::from("hello world"),
             file_mode: false,
         };
