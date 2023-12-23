@@ -111,3 +111,20 @@ impl RunCommand for AesArgs {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_decrypt() {
+        let args = AesArgs {
+            message: "P37w+VZImNgPEO1RBhJ6RtKl7n6zymIbEG1pReEzghk=".to_string(),
+            encrypt: false,
+            decrypt: true,
+            key: "test key".to_string(),
+        };
+
+        assert_eq!(args.decrypt(), "hello world")
+    }
+}
